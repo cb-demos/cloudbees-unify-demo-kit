@@ -1,0 +1,70 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: horizon-health-standard-release
+on:
+  workflow_dispatch:
+    inputs:
+      manifest:
+        type: string
+        default: '{"orders-api":{"orders-api":{"deploy":true,"id":"orders-api:1.4.0"}},"payments-api":{"payments-api":{"deploy":false,"id":"payments-api:2.8.1"}},"web-frontend":{"web-frontend":{"deploy":true,"id":"web-frontend:3.2.0"}}}'
+      clinical_system:
+        type: choice
+        options:
+          - patient-portal
+          - scheduling
+          - research-data
+        default: patient-portal
+jobs:
+  platform-golden-path:
+    steps:
+      - name: Validate standard workflow usage
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Horizon Health standard release path"
+          echo "Clinical system: ${{ inputs.clinical_system }}"
+          echo "Checking reusable workflow adoption"
+          echo "Checking required health-data governance controls"
+
+  deploy-qa:
+    needs:
+      - platform-golden-path
+    environment: qa
+    uses: ./.cloudbees/workflows/deployer.yaml
+    with:
+      manifest: ${{ inputs.manifest }}
+      environment: ${{ job.environment }}
+
+  automated-validation:
+    needs:
+      - deploy-qa
+    steps:
+      - name: Run targeted tests
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Running targeted regression suite"
+          echo "Running API contract tests"
+          echo "Running compliance smoke checks"
+          echo "Validation passed"
+
+  deploy-staging:
+    needs:
+      - automated-validation
+    environment: staging
+    uses: ./.cloudbees/workflows/deployer.yaml
+    with:
+      manifest: ${{ inputs.manifest }}
+      environment: ${{ job.environment }}
+
+  release-summary:
+    needs:
+      - deploy-staging
+    steps:
+      - name: Summarize business value
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Release standardized using a reusable platform workflow"
+          echo "Developer teams keep their preferred tools"
+          echo "Leadership gets consistent release visibility"

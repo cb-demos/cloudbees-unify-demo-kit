@@ -1,0 +1,78 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: component-deploy
+on:
+  workflow_call:
+    inputs:
+      artifact-id:
+        type: string
+        required: true
+      environment:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      artifact-id:
+        type: string
+        default: orders-api:1.4.0
+      environment:
+        type: choice
+        options:
+          - dev
+          - qa
+          - staging
+          - prod
+        default: dev
+jobs:
+  pre-deploy-checks:
+    steps:
+      - name: Print deployment context
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Deploying artifact: ${{ inputs.artifact-id }}"
+          echo "Target environment: ${{ inputs.environment }}"
+      - name: Validate environment policy
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          if [ "${{ inputs.environment }}" = "prod" ]; then
+            echo "Production deployment detected: approval and change ticket required"
+          else
+            echo "Non-production deployment: standard checks passed"
+          fi
+
+  deploy:
+    needs:
+      - pre-deploy-checks
+    steps:
+      - name: Checkout source
+        uses: https://github.com/cloudbees-io/checkout@v1
+      - name: Render Kubernetes manifests
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Rendering Kubernetes manifests for ${{ inputs.environment }}"
+          sed "s|IMAGE_PLACEHOLDER|ghcr.io/example/orders-api:${{ inputs.artifact-id }}|g" k8s/deployment.yaml > rendered-deployment.yaml
+          cat rendered-deployment.yaml
+      - name: Deploy with kubectl dry run
+        uses: docker://bitnami/kubectl:latest
+        shell: sh
+        run: |
+          echo "Demo mode: validating Kubernetes manifests without requiring a live cluster"
+          kubectl apply --dry-run=client -f k8s/ || true
+
+  post-deploy-evidence:
+    needs:
+      - deploy
+    steps:
+      - name: Generate deployment evidence
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Deployment evidence"
+          echo "application=customer-portal"
+          echo "component=orders-api"
+          echo "artifact=${{ inputs.artifact-id }}"
+          echo "environment=${{ inputs.environment }}"
+          echo "status=success"

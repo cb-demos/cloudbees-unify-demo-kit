@@ -1,0 +1,80 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: finsure-bank-regulated-release
+on:
+  workflow_dispatch:
+    inputs:
+      manifest:
+        type: string
+        default: '{"orders-api":{"orders-api":{"deploy":true,"id":"orders-api:1.4.0"}},"payments-api":{"payments-api":{"deploy":true,"id":"payments-api:2.8.1"}},"web-frontend":{"web-frontend":{"deploy":true,"id":"web-frontend:3.2.0"}}}'
+      change_ticket:
+        type: string
+        default: CHG-10482
+      release_window:
+        type: string
+        default: Saturday 22:00-23:00 ET
+jobs:
+  governance-review:
+    steps:
+      - name: Validate audit evidence
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "FinSure Bank governance review"
+          echo "Change ticket: ${{ inputs.change_ticket }}"
+          echo "Release window: ${{ inputs.release_window }}"
+          echo "Verifying tests, security scans, and approvals"
+          echo "Audit evidence: complete"
+
+  deploy-staging:
+    needs:
+      - governance-review
+    environment: staging
+    uses: ./.cloudbees/workflows/deployer.yaml
+    with:
+      manifest: ${{ inputs.manifest }}
+      environment: ${{ job.environment }}
+
+  staging-validation:
+    needs:
+      - deploy-staging
+    steps:
+      - name: Run smoke tests and release checks
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Running smoke tests"
+          echo "Checking SLO dashboards"
+          echo "Validating audit controls"
+          echo "Staging validation passed"
+
+  production-approval:
+    needs:
+      - staging-validation
+    steps:
+      - name: Manual approval placeholder
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Demo talking point: insert a production approval step in CloudBees Unify Workflow Composer"
+          echo "Approvers: Release Manager, Security, Application Owner"
+
+  deploy-production:
+    needs:
+      - production-approval
+    environment: prod
+    uses: ./.cloudbees/workflows/deployer.yaml
+    with:
+      manifest: ${{ inputs.manifest }}
+      environment: ${{ job.environment }}
+
+  release-evidence:
+    needs:
+      - deploy-production
+    steps:
+      - name: Publish release evidence
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Release completed for FinSure Bank"
+          echo "Evidence package: tests, scans, approvals, deployments, change ticket"

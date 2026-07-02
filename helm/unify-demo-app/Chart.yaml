@@ -1,0 +1,6 @@
+apiVersion: v2
+name: unify-demo-app
+description: Demo Helm chart for CloudBees Unify SE candidate presentations
+type: application
+version: 0.1.0
+appVersion: "1.4.0"

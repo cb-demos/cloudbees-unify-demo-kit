@@ -1,0 +1,38 @@
+name: External CI - Build Test Scan
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+jobs:
+  build-test-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        run: |
+          echo "Build orders-api"
+          mkdir -p build
+          echo "demo artifact" > build/orders-api.txt
+      - name: Unit tests
+        run: |
+          echo "PASS: unit tests"
+      - name: Security scan placeholder
+        run: |
+          echo "Critical: 0"
+          echo "High: 0"
+      - name: Publish release evidence
+        run: |
+          cat > release-evidence.json <<JSON
+          {
+            "application": "customer-portal",
+            "component": "orders-api",
+            "build": "${{ github.run_number }}",
+            "commit": "${{ github.sha }}",
+            "tests": "passed",
+            "security": "passed"
+          }
+          JSON
+          cat release-evidence.json

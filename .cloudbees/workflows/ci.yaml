@@ -1,0 +1,93 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: ci-build-test-scan
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      run_security_scan:
+        type: boolean
+        default: true
+      customer_scenario:
+        type: choice
+        options:
+          - finsure-bank
+          - horizon-health
+        default: finsure-bank
+jobs:
+  validate:
+    steps:
+      - name: Checkout source
+        uses: https://github.com/cloudbees-io/checkout@v1
+      - name: Validate repository structure
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Validating demo repository structure"
+          test -f k8s/deployment.yaml
+          test -f k8s/service.yaml
+          test -f helm/unify-demo-app/Chart.yaml
+          echo "Repository structure is ready"
+
+  unit-tests:
+    needs:
+      - validate
+    steps:
+      - name: Checkout source
+        uses: https://github.com/cloudbees-io/checkout@v1
+      - name: Run unit tests
+        uses: docker://node:20-alpine
+        shell: sh
+        run: |
+          echo "Installing dependencies"
+          echo "Running unit tests for orders-api"
+          echo "PASS: 48 tests passed"
+
+  security-scan:
+    needs:
+      - unit-tests
+    if: ${{ inputs.run_security_scan }}
+    steps:
+      - name: Checkout source
+        uses: https://github.com/cloudbees-io/checkout@v1
+      - name: Mock SAST and dependency scan
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Running mock SAST scan"
+          echo "Running mock dependency scan"
+          echo "Critical vulnerabilities: 0"
+          echo "High vulnerabilities: 0"
+          echo "Policy: passed"
+
+  package:
+    needs:
+      - security-scan
+    steps:
+      - name: Checkout source
+        uses: https://github.com/cloudbees-io/checkout@v1
+      - name: Create build metadata
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          mkdir -p build
+          cat > build/release-metadata.json <<JSON
+          {
+            "application": "customer-portal",
+            "component": "orders-api",
+            "version": "1.4.${{ cloudbees.run_number }}",
+            "commit": "${{ cloudbees.scm.sha }}",
+            "scenario": "${{ inputs.customer_scenario }}",
+            "securityPolicy": "passed",
+            "testStatus": "passed"
+          }
+          JSON
+          cat build/release-metadata.json
+    outputs:
+      artifact-id: orders-api:1.4.${{ cloudbees.run_number }}
+      release-version: 1.4.${{ cloudbees.run_number }}

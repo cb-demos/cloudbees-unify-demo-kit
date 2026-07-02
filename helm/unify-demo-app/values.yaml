@@ -1,0 +1,9 @@
+image:
+  repository: ghcr.io/example/orders-api
+  tag: "1.4.0"
+replicaCount: 2
+service:
+  port: 80
+env:
+  customerScenario: finsure-bank
+  auditEvidence: enabled
