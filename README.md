@@ -42,3 +42,4 @@ These are intentionally simple building blocks. To make the demo yours:
 - Rename the application/components to fit your scenario (e.g. `Customer Portal` / `orders-api`).
 - Add or remove a tool integration to match the customer's toolchain.
 - Pair with the application repo to show the full **build → release** story across a Component and an Application.
+
